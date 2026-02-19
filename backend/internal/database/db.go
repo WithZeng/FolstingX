@@ -30,7 +30,7 @@ func Init(cfg *config.Config) error {
 		return err
 	}
 
-	if err := db.AutoMigrate(&models.User{}, &models.Node{}, &models.SystemLog{}, &models.ForwardRule{}, &models.TrafficStat{}); err != nil {
+	if err := db.AutoMigrate(&models.User{}, &models.Node{}, &models.SystemLog{}, &models.ForwardRule{}, &models.TrafficStat{}, &models.Tunnel{}, &models.ChainTunnel{}, &models.Forward{}, &models.ForwardPort{}); err != nil {
 		return err
 	}
 

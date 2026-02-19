@@ -60,14 +60,32 @@ echo "[5/7] 更新前端并构建"
 rm -rf "${INSTALL_DIR}/frontend-dist"
 cp -r "${TMP_DIR}/frontend/dist" "${INSTALL_DIR}/frontend-dist"
 
-echo "[6/7] 更新配置模板和脚本"
+echo "[6/8] 更新配置模板和脚本"
 mkdir -p "${INSTALL_DIR}/scripts" "${INSTALL_DIR}/config"
 cp -r "${TMP_DIR}/scripts/"* "${INSTALL_DIR}/scripts/" || true
 cp "${TMP_DIR}/config/config.example.yaml" "${INSTALL_DIR}/config/config.example.yaml" || true
 
-echo "[7/7] 启动服务"
+echo "[7/8] 更新 Nginx 配置"
+if [[ -f /etc/nginx/conf.d/folstingx.conf ]]; then
+  # 确保 WebSocket agent 端点被代理
+  if ! grep -q '/ws/agent' /etc/nginx/conf.d/folstingx.conf; then
+    sed -i '/location \/ws\//a\\n    location /ws/agent {\n        proxy_pass http://127.0.0.1:8080;\n        proxy_http_version 1.1;\n        proxy_set_header Upgrade \$http_upgrade;\n        proxy_set_header Connection "upgrade";\n        proxy_set_header Host \$host;\n        proxy_read_timeout 86400;\n    }' /etc/nginx/conf.d/folstingx.conf
+    nginx -t && systemctl reload nginx
+    echo "Nginx 配置已更新: 添加 /ws/agent 代理"
+  fi
+fi
+
+echo "[8/8] 启动服务"
+chown -R folstingx:folstingx "${INSTALL_DIR}" 2>/dev/null || true
 systemctl daemon-reload
 systemctl start "${APP_NAME}"
 systemctl status "${APP_NAME}" --no-pager -l || true
 
-echo "更新完成"
+echo ""
+echo "========================================"
+echo "  FolstingX 更新完成!"
+echo "  GitHub: https://github.com/WithZeng/FolstingX"
+echo "========================================"
+echo "  如需更新远程节点 Agent:"
+echo "  在面板 → 节点管理 → 安装命令 获取最新脚本"
+echo "========================================"

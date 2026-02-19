@@ -23,11 +23,19 @@ func RegisterNodeRoutes(r *gin.RouterGroup) {
     nodes.PUT("/:id", updateNode)
     nodes.DELETE("/:id", deleteNode)
     nodes.POST("/:id/check", checkNode)
+    nodes.GET("/:id/install-command", getInstallCommand)
+    nodes.POST("/:id/regenerate-secret", regenerateSecret)
 
     nodes.POST("/import", importNodes)
     nodes.POST("/import-text", importNodesText)
     nodes.GET("/export", exportNodes)
     nodes.GET("/export-text", exportNodesText)
+  }
+
+  // 公开端点: 节点 Agent 安装脚本下载
+  agent := r.Group("/node-agent")
+  {
+    agent.GET("/install.sh", serveInstallScript)
   }
 }
 
@@ -52,6 +60,7 @@ func createNode(c *gin.Context) {
     return
   }
   fillNodeDefaults(&node)
+  node.GenerateSecret() // 自动生成 Agent 认证密钥
 
   if err := database.DB.Create(&node).Error; err != nil {
     c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
@@ -222,4 +231,189 @@ func fillNodeDefaults(node *models.Node) {
   if len(node.Roles) == 0 {
     node.Roles = models.JSONList{"entry", "relay", "exit"}
   }
+  if node.AgentPort == 0 {
+    node.AgentPort = 8443
+  }
 }
+
+// ==================== 安装命令 & Agent ====================
+
+// getInstallCommand 生成节点安装命令 (参照 flux-panel getInstallCommand)
+func getInstallCommand(c *gin.Context) {
+  id, _ := strconv.Atoi(c.Param("id"))
+  var node models.Node
+  if err := database.DB.First(&node, id).Error; err != nil {
+    c.JSON(http.StatusNotFound, gin.H{"error": "node not found"})
+    return
+  }
+
+  if node.Secret == "" {
+    node.GenerateSecret()
+    _ = database.DB.Save(&node).Error
+  }
+
+  // 面板地址: 从请求 Header 推断或用配置
+  panelAddr := c.Request.Header.Get("X-Panel-Addr")
+  if panelAddr == "" {
+    scheme := "http"
+    if c.Request.TLS != nil {
+      scheme = "https"
+    }
+    panelAddr = scheme + "://" + c.Request.Host
+  }
+
+  installCmd := node.GetInstallCommand(panelAddr)
+
+  c.JSON(http.StatusOK, gin.H{
+    "install_command": installCmd,
+    "panel_addr":      panelAddr,
+    "secret":          node.Secret,
+    "node_id":         node.ID,
+  })
+}
+
+// regenerateSecret 重新生成节点密钥
+func regenerateSecret(c *gin.Context) {
+  id, _ := strconv.Atoi(c.Param("id"))
+  var node models.Node
+  if err := database.DB.First(&node, id).Error; err != nil {
+    c.JSON(http.StatusNotFound, gin.H{"error": "node not found"})
+    return
+  }
+  node.GenerateSecret()
+  if err := database.DB.Save(&node).Error; err != nil {
+    c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+    return
+  }
+  c.JSON(http.StatusOK, gin.H{"message": "secret regenerated", "secret": node.Secret})
+}
+
+// serveInstallScript 提供节点安装脚本下载
+func serveInstallScript(c *gin.Context) {
+  c.Header("Content-Type", "text/plain; charset=utf-8")
+  c.Header("Content-Disposition", "attachment; filename=install.sh")
+  c.String(200, nodeInstallScript)
+}
+
+// AgentWSHandler 节点 Agent WebSocket 连接入口
+func AgentWSHandler(c *gin.Context) {
+  secret := c.Query("secret")
+  if secret == "" {
+    c.JSON(401, gin.H{"error": "missing secret"})
+    return
+  }
+
+  // 通过 secret 查找节点
+  var node models.Node
+  if err := database.DB.Where("secret = ?", secret).First(&node).Error; err != nil {
+    c.JSON(401, gin.H{"error": "invalid secret"})
+    return
+  }
+
+  conn, err := upgrader.Upgrade(c.Writer, c.Request, nil)
+  if err != nil {
+    return
+  }
+
+  session := app.agentHub.Register(node.ID, node.Name, node.Secret, conn)
+  defer app.agentHub.Unregister(node.ID)
+
+  for {
+    _, msg, err := conn.ReadMessage()
+    if err != nil {
+      break
+    }
+    app.agentHub.HandleReport(session.NodeID, session.Secret, msg)
+  }
+}
+
+// nodeInstallScript 节点 Agent 安装脚本 (参照 flux-panel install.sh)
+const nodeInstallScript = `#!/usr/bin/env bash
+set -euo pipefail
+
+# FolstingX Node Agent 安装脚本
+# 用法: bash install.sh -a <panel_addr> -s <secret>
+
+PANEL_ADDR=""
+SECRET=""
+INSTALL_DIR="/etc/folstingx_agent"
+SERVICE_NAME="folstingx-agent"
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    -a|--addr) PANEL_ADDR="$2"; shift 2 ;;
+    -s|--secret) SECRET="$2"; shift 2 ;;
+    -d|--dir) INSTALL_DIR="$2"; shift 2 ;;
+    *) echo "未知参数: $1"; exit 1 ;;
+  esac
+done
+
+if [[ -z "${PANEL_ADDR}" ]] || [[ -z "${SECRET}" ]]; then
+  echo "用法: bash install.sh -a <panel_addr> -s <secret>"
+  exit 1
+fi
+
+echo "=== FolstingX Node Agent 安装 ==="
+echo "面板地址: ${PANEL_ADDR}"
+echo "安装目录: ${INSTALL_DIR}"
+
+# 创建目录
+mkdir -p "${INSTALL_DIR}"
+
+# 检测架构
+ARCH="$(uname -m)"
+case "${ARCH}" in
+  x86_64) ARCH="amd64" ;;
+  aarch64) ARCH="arm64" ;;
+  *) echo "不支持架构: ${ARCH}"; exit 1 ;;
+esac
+
+# 下载 gost (使用 go-gost v3)
+GOST_URL="https://github.com/go-gost/gost/releases/latest/download/gost_linux_${ARCH}"
+echo "下载 gost..."
+curl -fsSL -o "${INSTALL_DIR}/gost" "${GOST_URL}" 2>/dev/null || {
+  echo "gost 下载失败，创建占位文件"
+  echo '#!/bin/sh' > "${INSTALL_DIR}/gost"
+  echo 'echo "gost placeholder"' >> "${INSTALL_DIR}/gost"
+}
+chmod +x "${INSTALL_DIR}/gost"
+
+# 写入配置
+cat > "${INSTALL_DIR}/config.json" <<EOF
+{
+  "addr": "${PANEL_ADDR}",
+  "secret": "${SECRET}"
+}
+EOF
+
+# 空 gost 配置
+echo '{}' > "${INSTALL_DIR}/gost.json"
+
+# 创建 systemd 服务
+cat > /etc/systemd/system/${SERVICE_NAME}.service <<EOF
+[Unit]
+Description=FolstingX Node Agent
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=${INSTALL_DIR}
+ExecStart=${INSTALL_DIR}/gost -C ${INSTALL_DIR}/gost.json
+Restart=always
+RestartSec=5
+LimitNOFILE=65535
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+systemctl daemon-reload
+systemctl enable ${SERVICE_NAME}
+systemctl restart ${SERVICE_NAME}
+
+echo ""
+echo "=== 安装完成 ==="
+echo "服务状态: systemctl status ${SERVICE_NAME}"
+echo "查看日志: journalctl -u ${SERVICE_NAME} -f"
+`

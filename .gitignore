@@ -21,3 +21,7 @@ Thumbs.db
 
 # Temp
 *.log
+
+# Third-party reference projects
+flux-panel-*/
+flux-panel-*.zip

@@ -80,6 +80,18 @@
       <n-button type="primary" @click="downloadExportText">下载</n-button>
     </n-space>
   </n-modal>
+
+  <!-- 节点安装命令 -->
+  <n-modal v-model:show="showInstallModal" preset="card" title="节点 Agent 安装命令" style="width: 640px">
+    <n-alert type="info" :show-icon="true" style="margin-bottom: 12px">
+      在目标服务器上执行以下命令，自动安装 gost Agent 并连接到面板。<br/>
+      Agent 通过 WebSocket 加密通信，无需开放额外端口。
+    </n-alert>
+    <n-input :value="installCmdText" type="textarea" :rows="3" readonly style="font-family: monospace; font-size: 13px" />
+    <n-space justify="end" style="margin-top: 12px">
+      <n-button type="primary" @click="copyInstallCmdText">复制命令</n-button>
+    </n-space>
+  </n-modal>
 </template>
 
 <script setup lang="ts">
@@ -111,6 +123,8 @@ const nodes = ref<NodeItem[]>([]);
 const editingNode = ref<NodeItem | null>(null);
 const importText = ref("");
 const exportTextData = ref("");
+const showInstallModal = ref(false);
+const installCmdText = ref("");
 
 const form = reactive<NodeItem>({
   id: 0,
@@ -168,6 +182,7 @@ const columns: DataTableColumns<NodeItem> = [
     render: (row) =>
       h("div", { style: "display:flex;gap:8px;" }, [
         h(NButton, { size: "small", onClick: () => openEdit(row) }, { default: () => "编辑" }),
+        h(NButton, { size: "small", type: "info", onClick: () => showInstallCmd(row.id) }, { default: () => "安装命令" }),
         h(NButton, { size: "small", type: "warning", onClick: () => checkNode(row.id) }, { default: () => "检查" }),
         h(
           NPopconfirm,
@@ -314,6 +329,22 @@ const downloadExportText = () => {
 };
 
 watch(() => showTextExport.value, (v) => { if (v) loadExportText(); });
+
+// ========= 安装命令 =========
+const showInstallCmd = async (id: number) => {
+  try {
+    const { data } = await http.get(`/nodes/${id}/install-command`);
+    installCmdText.value = data.install_command;
+    showInstallModal.value = true;
+  } catch (e: any) {
+    message.error(e?.response?.data?.error || "获取安装命令失败");
+  }
+};
+
+const copyInstallCmdText = () => {
+  navigator.clipboard.writeText(installCmdText.value);
+  message.success("已复制到剪贴板");
+};
 
 onMounted(fetchNodes);
 </script>

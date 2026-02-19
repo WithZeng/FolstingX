@@ -26,8 +26,9 @@ func main() {
   collector := services.NewTrafficCollector(fm)
   xrayMgr := services.NewXrayManager("./bin/xray")
   gostMgr := services.NewGostManager("./bin/gost")
+  agentHub := services.NewAgentHub()
 
-  api.Init(cfg, fm, collector, xrayMgr, gostMgr)
+  api.Init(cfg, fm, collector, xrayMgr, gostMgr, agentHub)
   services.StartNodeChecker()
   services.StartLogRetentionJobs()
   _ = fm.StartAll()
@@ -51,6 +52,7 @@ func main() {
     api.RegisterAuthRoutes(apiGroup, cfg)
     api.RegisterNodeRoutes(apiGroup)
     api.RegisterRuleRoutes(apiGroup)
+    api.RegisterTunnelRoutes(apiGroup)
     api.RegisterMonitorRoutes(apiGroup)
     api.RegisterUserRoutes(apiGroup)
     api.RegisterLogRoutes(apiGroup)
@@ -60,6 +62,7 @@ func main() {
   }
 
   r.GET("/ws/monitor", api.MonitorWSHandler)
+  r.GET("/ws/agent", api.AgentWSHandler)
 
   addr := cfg.Server.Host + ":" + strconv.Itoa(cfg.Server.Port)
   _ = r.Run(addr)

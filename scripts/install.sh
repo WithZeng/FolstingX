@@ -138,11 +138,21 @@ server {
         proxy_set_header X-Real-IP \$remote_addr;
     }
 
-    location /ws/ {
+    location /ws/monitor {
         proxy_pass http://127.0.0.1:8080;
         proxy_http_version 1.1;
         proxy_set_header Upgrade \$http_upgrade;
         proxy_set_header Connection "upgrade";
+        proxy_set_header Host \$host;
+    }
+
+    location /ws/agent {
+        proxy_pass http://127.0.0.1:8080;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade \$http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host \$host;
+        proxy_read_timeout 86400;
     }
 
     location / {
@@ -157,6 +167,19 @@ EOF
   systemctl restart nginx
 }
 
+show_node_install_help() {
+  echo ""
+  echo "==================================="
+  echo "  添加远程节点:"
+  echo "  1. 登录面板 → 节点管理 → 新增节点"
+  echo "  2. 点击 [安装命令] 按钮"
+  echo "  3. 在目标服务器执行命令即可"
+  echo ""
+  echo "  或使用 AI 自动配置:"
+  echo "  bash <(curl -fsSL https://raw.githubusercontent.com/WithZeng/FolstingX/main/scripts/ai-autoconfig.sh) --mode node --panel-addr http://$(hostname -I | awk '{print $1}') --secret <节点密钥>"
+  echo "==================================="
+}
+
 main() {
   install_packages
   prepare_source
@@ -166,9 +189,17 @@ main() {
   setup_systemd
   setup_nginx
 
-  echo "安装完成"
-  echo "访问地址: http://$(hostname -I | awk '{print $1}')"
-  echo "默认账号: admin / admin123"
+  echo ""
+  echo "====================================="
+  echo "  FolstingX 面板安装完成!"
+  echo "====================================="
+  echo "  面板地址: http://$(hostname -I | awk '{print $1}')"
+  echo "  默认账号: admin / admin123"
+  echo "  ⚠ 请立即修改默认密码!"
+  echo ""
+  echo "  GitHub: https://github.com/WithZeng/FolstingX"
+  echo "====================================="
+  show_node_install_help
 }
 
 main "$@"

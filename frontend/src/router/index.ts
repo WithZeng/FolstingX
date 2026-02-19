@@ -4,6 +4,7 @@ import LoginView from "@/views/Login.vue";
 import DashboardView from "@/views/Dashboard.vue";
 import RulesView from "@/views/Rules.vue";
 import NodesView from "@/views/Nodes.vue";
+import TunnelsView from "@/views/Tunnels.vue";
 import UsersView from "@/views/Users.vue";
 import LogsView from "@/views/Logs.vue";
 import SettingsView from "@/views/Settings.vue";
@@ -18,6 +19,7 @@ const router = createRouter({
       redirect: "/dashboard",
       children: [
         { path: "/dashboard", name: "dashboard", component: DashboardView },
+        { path: "/tunnels", name: "tunnels", component: TunnelsView },
         { path: "/rules", name: "rules", component: RulesView },
         { path: "/nodes", name: "nodes", component: NodesView },
         { path: "/users", name: "users", component: UsersView },

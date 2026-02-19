@@ -44,6 +44,7 @@ onMounted(async () => {
 
 const menuOptions = [
   { label: () => h("span", "仪表盘"), key: "/dashboard" },
+  { label: () => h("span", "隧道管理"), key: "/tunnels" },
   { label: () => h("span", "规则管理"), key: "/rules" },
   { label: () => h("span", "节点管理"), key: "/nodes" },
   { label: () => h("span", "用户管理"), key: "/users" },
