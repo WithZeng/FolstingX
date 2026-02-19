@@ -27,6 +27,7 @@ func RegisterRuleRoutes(r *gin.RouterGroup) {
 		rules.PUT("/:id/disable", disableRule)
 		rules.GET("/:id/stats", ruleStats)
 		rules.POST("/import", importRules)
+		rules.POST("/import-text", importRulesText) // 纯文本 JSON 导入
 		rules.GET("/export", exportRules)
 	}
 }
@@ -204,11 +205,43 @@ func exportRules(c *gin.Context) {
 	c.JSON(http.StatusOK, rules)
 }
 
+// importRulesText 纯文本 JSON 导入 (POST body 就是 JSON 数组)
+func importRulesText(c *gin.Context) {
+	var rules []models.ForwardRule
+	if err := c.ShouldBindJSON(&rules); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid json: " + err.Error()})
+		return
+	}
+	imported := 0
+	for _, r := range rules {
+		r.ID = 0
+		if r.Protocol == "" {
+			r.Protocol = "tcp"
+		}
+		if database.DB.Create(&r).Error == nil {
+			imported++
+		}
+	}
+	c.JSON(http.StatusOK, gin.H{"imported": imported})
+}
+
 func applyInbound(rule models.ForwardRule) {
 	if !rule.InboundProxyEnabled {
 		return
 	}
-	if rule.Mode == "direct" && rule.InboundType == "vless_reality" {
+	// 解析监听节点 - 任何节点都可以作为监听入口
+	if rule.ListenNodeID > 0 {
+		var node models.Node
+		if err := database.DB.First(&node, rule.ListenNodeID).Error; err != nil {
+			return // 节点不存在
+		}
+		// 节点需要有 entry 角色才能作为入站
+		if !node.HasRole("entry") {
+			return
+		}
+	}
+
+	if rule.InboundType == "vless_reality" {
 		_ = app.xray.EnsureBinary()
 		_ = app.xray.Reload()
 		return

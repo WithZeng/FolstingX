@@ -9,7 +9,10 @@ WorkingDirectory=/opt/folstingx/backend
 ExecStart=/opt/folstingx/bin/folstingx-server
 Restart=always
 RestartSec=5
-User=root
+User=folstingx
+Group=folstingx
+LimitNOFILE=65535
+AmbientCapabilities=CAP_NET_BIND_SERVICE
 
 [Install]
 WantedBy=multi-user.target

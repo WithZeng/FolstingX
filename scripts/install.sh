@@ -9,7 +9,7 @@ REPO_REF="${REPO_REF:-main}"
 TMP_DIR="/tmp/${APP_NAME}-src-$$"
 
 if [[ "${EUID}" -ne 0 ]]; then
-  echo "请使用 root 运行 install.sh"
+  echo "请使用 root 运行 install.sh (仅安装需要 root, 运行使用 folstingx 用户)"
   exit 1
 fi
 
@@ -83,6 +83,14 @@ setup_config() {
 }
 
 setup_systemd() {
+  # 创建专用运行用户 (非 root)
+  if ! id "folstingx" &>/dev/null; then
+    useradd -r -m -s /bin/bash -d /home/folstingx folstingx || true
+    echo "创建服务用户: folstingx"
+  fi
+  # 授权安装目录
+  chown -R folstingx:folstingx "${INSTALL_DIR}"
+
   cat > "${SERVICE_FILE}" <<EOF
 [Unit]
 Description=FolstingX Service
@@ -95,7 +103,11 @@ WorkingDirectory=${INSTALL_DIR}/backend
 ExecStart=${INSTALL_DIR}/bin/folstingx-server
 Restart=always
 RestartSec=5
-User=root
+User=folstingx
+Group=folstingx
+LimitNOFILE=65535
+# 允许绑定低端口
+AmbientCapabilities=CAP_NET_BIND_SERVICE
 
 [Install]
 WantedBy=multi-user.target

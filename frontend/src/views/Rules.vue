@@ -3,7 +3,7 @@
     <n-space justify="space-between" style="margin-bottom: 16px">
       <n-input v-model:value="keyword" placeholder="搜索规则名/目标" style="max-width: 320px" clearable />
       <n-space>
-        <n-upload :default-upload="false" @change="onImportFile"><n-button>导入</n-button></n-upload>
+        <n-button @click="showImportModal = true">导入</n-button>
         <n-button @click="exportSelected" :disabled="selectedKeys.length === 0">批量导出</n-button>
         <n-button type="primary" @click="openCreate">新建规则</n-button>
       </n-space>
@@ -19,6 +19,26 @@
   </n-card>
 
   <rule-editor v-model:show="showEditor" :editing-rule="editingRule" @saved="reload" />
+
+  <!-- 导入弹窗: 支持文件和文本 -->
+  <n-modal v-model:show="showImportModal" preset="card" title="导入规则" style="width: 640px">
+    <n-tabs type="segment">
+      <n-tab-pane name="text" tab="文本导入">
+        <n-alert type="info" :show-icon="false" style="margin-bottom: 12px">
+          粘贴 JSON 数组格式的规则数据
+        </n-alert>
+        <n-input v-model:value="importText" type="textarea" :rows="10" placeholder="粘贴 JSON 规则数组..." />
+        <n-space justify="end" style="margin-top: 12px">
+          <n-button type="primary" @click="doTextImport">导入</n-button>
+        </n-space>
+      </n-tab-pane>
+      <n-tab-pane name="file" tab="文件导入">
+        <n-upload :default-upload="false" @change="onImportFile" accept=".json">
+          <n-button>选择 JSON 文件</n-button>
+        </n-upload>
+      </n-tab-pane>
+    </n-tabs>
+  </n-modal>
 </template>
 
 <script setup lang="ts">
@@ -45,9 +65,11 @@ interface RuleItem {
 const message = useMessage();
 const rules = ref<RuleItem[]>([]);
 const showEditor = ref(false);
+const showImportModal = ref(false);
 const editingRule = ref<RuleItem | null>(null);
 const selectedKeys = ref<number[]>([]);
 const keyword = ref("");
+const importText = ref("");
 
 const filteredRules = computed(() => {
   if (!keyword.value.trim()) return rules.value;
@@ -98,15 +120,8 @@ const reload = async () => {
   rules.value = data;
 };
 
-const openCreate = () => {
-  editingRule.value = null;
-  showEditor.value = true;
-};
-
-const openEdit = (row: RuleItem) => {
-  editingRule.value = row;
-  showEditor.value = true;
-};
+const openCreate = () => { editingRule.value = null; showEditor.value = true; };
+const openEdit = (row: RuleItem) => { editingRule.value = row; showEditor.value = true; };
 
 const removeRule = async (id: number) => {
   await http.delete(`/rules/${id}`);
@@ -125,9 +140,7 @@ const exportSelected = async () => {
   const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
-  a.href = url;
-  a.download = "rules-export.json";
-  a.click();
+  a.href = url; a.download = "rules-export.json"; a.click();
   URL.revokeObjectURL(url);
 };
 
@@ -139,7 +152,23 @@ const onImportFile = async (options: { file: UploadFileInfo }) => {
   formData.append("conflict", "rename");
   await http.post("/rules/import", formData, { headers: { "Content-Type": "multipart/form-data" } });
   message.success("导入成功");
+  showImportModal.value = false;
   await reload();
+};
+
+const doTextImport = async () => {
+  const text = importText.value.trim();
+  if (!text) { message.warning("请输入数据"); return; }
+  try {
+    const arr = JSON.parse(text);
+    const { data } = await http.post("/rules/import-text", arr);
+    message.success(`成功导入 ${data.imported} 条规则`);
+    showImportModal.value = false;
+    importText.value = "";
+    await reload();
+  } catch (e: any) {
+    message.error("导入失败: " + (e?.response?.data?.error || e.message));
+  }
 };
 
 onMounted(reload);

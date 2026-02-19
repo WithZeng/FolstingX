@@ -16,9 +16,13 @@ RUN cd frontend && npm run build
 
 FROM debian:bookworm-slim
 WORKDIR /opt/folstingx
-RUN apt-get update && apt-get install -y ca-certificates && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y ca-certificates && rm -rf /var/lib/apt/lists/* \
+    && useradd -r -m -s /bin/bash folstingx \
+    && chown -R folstingx:folstingx /opt/folstingx
 COPY --from=backend-builder /out/folstingx /usr/local/bin/folstingx
 COPY --from=frontend-builder /app/frontend/dist ./frontend-dist
 COPY config/config.example.yaml ./config/config.yaml
+RUN chown -R folstingx:folstingx /opt/folstingx
+USER folstingx
 EXPOSE 8080
 CMD ["/usr/local/bin/folstingx"]
