@@ -39,7 +39,7 @@ func main() {
 
   // 健康检查接口。
   r.GET("/health", func(c *gin.Context) {
-    c.JSON(http.StatusOK, gin.H{"status": "ok", "version": "1.0.0"})
+    c.JSON(http.StatusOK, gin.H{"status": "ok", "version": "1.0.1"})
   })
   r.GET("/swagger/index.html", func(c *gin.Context) {
     c.Header("Content-Type", "text/html; charset=utf-8")

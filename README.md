@@ -2,6 +2,9 @@
 
 高性能网络转发管理面板，支持 TCP/UDP 转发、可选入站代理、节点间隧道、实时监控与多用户权限管理。
 
+## 当前版本
+- `v1.0.1`
+
 ## 核心功能
 - TCP/UDP 端口转发，支持规则热更新
 - 两套独立工具：`Xray-core`（海外直连入站）+ `gost`（节点间隧道）
@@ -27,6 +30,11 @@
 ### 一键安装（推荐）
 ```bash
 bash <(curl -fsSL https://raw.githubusercontent.com/WithZeng/FolstingX/main/scripts/install.sh)
+```
+
+### 一键更新到最新版本
+```bash
+bash <(curl -fsSL https://raw.githubusercontent.com/WithZeng/FolstingX/main/scripts/update.sh)
 ```
 
 ### 手动安装
