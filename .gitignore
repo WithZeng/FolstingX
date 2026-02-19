@@ -1,0 +1,23 @@
+﻿# Node
+frontend/node_modules/
+frontend/dist/
+
+# Go
+backend/data/
+backend/logs/
+*.exe
+*.dll
+*.so
+*.dylib
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Temp
+*.log

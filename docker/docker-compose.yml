@@ -1,0 +1,27 @@
+﻿version: "3.9"
+services:
+  server:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    container_name: folstingx-server
+    volumes:
+      - folstingx_data:/opt/folstingx/data
+      - folstingx_logs:/opt/folstingx/logs
+    ports:
+      - "8080:8080"
+
+  nginx:
+    image: nginx:1.27-alpine
+    container_name: folstingx-nginx
+    depends_on:
+      - server
+    ports:
+      - "80:80"
+    volumes:
+      - ../frontend/dist:/usr/share/nginx/html:ro
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
+
+volumes:
+  folstingx_data:
+  folstingx_logs:

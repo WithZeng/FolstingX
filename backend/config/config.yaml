@@ -1,0 +1,15 @@
+server:
+  host: 0.0.0.0
+  port: 8080
+  mode: release
+
+database:
+  type: sqlite
+  dsn: ./data/folstingx.db
+
+auth:
+  jwt_secret: dev-secret
+
+log:
+  level: info
+  file: ./logs/app.log

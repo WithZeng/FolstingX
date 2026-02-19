@@ -1,0 +1,15 @@
+﻿[Unit]
+Description=FolstingX Service
+After=network.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/folstingx/backend
+ExecStart=/usr/bin/env bash -lc 'go run cmd/server/main.go'
+Restart=always
+RestartSec=5
+User=root
+
+[Install]
+WantedBy=multi-user.target

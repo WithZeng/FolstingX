@@ -1,0 +1,38 @@
+# FolstingX 配置示例
+# 复制本文件为 config.yaml 后按需修改。
+
+server:
+  # 服务监听地址，0.0.0.0 表示监听所有网卡
+  host: 0.0.0.0
+  # HTTP 监听端口
+  port: 8080
+  # Gin 运行模式：debug/release/test
+  mode: release
+
+database:
+  # 当前默认 sqlite，后续可扩展 mysql/postgres
+  type: sqlite
+  # 数据库连接串，sqlite 时是文件路径
+  dsn: ./data/folstingx.db
+
+auth:
+  # JWT 签名密钥，生产环境必须替换为高强度随机值
+  jwt_secret: change-this-in-production
+
+log:
+  # 日志级别：debug/info/warn/error
+  level: info
+  # 主日志文件路径
+  file: ./logs/app.log
+
+external:
+  # xray-core 二进制路径（STEP 5 使用）
+  xray_path: ./bin/xray
+  # gost 二进制路径（STEP 5 使用）
+  gost_path: ./bin/gost
+
+monitor:
+  # 监控采样间隔（秒）
+  sample_interval: 1
+  # 聚合写库间隔（秒）
+  flush_interval: 5
