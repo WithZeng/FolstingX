@@ -6,7 +6,7 @@ Wants=network-online.target
 [Service]
 Type=simple
 WorkingDirectory=/opt/folstingx/backend
-ExecStart=/usr/bin/env bash -lc 'go run cmd/server/main.go'
+ExecStart=/opt/folstingx/bin/folstingx-server
 Restart=always
 RestartSec=5
 User=root
