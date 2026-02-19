@@ -107,9 +107,17 @@ EOF
 
 setup_nginx() {
   mkdir -p /etc/nginx/conf.d
+  # Disable distro default site to avoid hitting "Welcome to nginx".
+  if [[ -f /etc/nginx/sites-enabled/default ]]; then
+    rm -f /etc/nginx/sites-enabled/default
+  fi
+  if [[ -f /etc/nginx/conf.d/default.conf ]]; then
+    rm -f /etc/nginx/conf.d/default.conf
+  fi
   cat > /etc/nginx/conf.d/folstingx.conf <<EOF
 server {
-    listen 80;
+    listen 80 default_server;
+    listen [::]:80 default_server;
     server_name _;
 
     location /api/ {
